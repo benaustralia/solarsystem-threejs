@@ -75,27 +75,39 @@ export function animate() {
   pObjs.forEach(p => {
     const isTarget = s.detailActive && p === s.detailPObj;
     if (s.detailActive && !isTarget) {
-      if (p.ringPivot) p.ringPivot.position.copy(p.mesh.position);
-      if (p.ringMesh) p.ringMesh.material.uniforms.uCenter.value.copy(p.mesh.position);
+      if (p.ringPivot && p.ringMesh) {
+        p.mesh.getWorldPosition(_wp);
+        p.ringMesh.material.uniforms.uCenter.value.copy(_wp);
+      }
       return;
     }
     if (!isTarget && !paused) {
       p.M += (2 * Math.PI / (p.period * YEAR)) * mul;
-      p.mesh.position.copy(kepPos(lerp(p.dD, p.tD, s.lerpT), p.e, p.inc, p.O, p.w, p.M));
+      const orbPos = kepPos(lerp(p.dD, p.tD, s.lerpT), p.e, p.inc, p.O, p.w, p.M);
+      if (p.ringPivot) {
+        // Saturn: mesh is child of pivot, so move pivot and keep mesh at local origin
+        p.ringPivot.position.copy(orbPos);
+        p.mesh.position.set(0, 0, 0);
+      } else {
+        p.mesh.position.copy(orbPos);
+      }
     }
     if (!paused) p.rotAng += p.rotSpd * (isTarget ? .15 : mul);
     p.mat.uniforms.uRotY.value = p.rotAng;
     p.mat.uniforms.uTime.value = t;
     if (p.ringPivot) {
-      p.ringPivot.position.copy(p.mesh.position);
-      p.ringMesh.material.uniforms.uCenter.value.copy(p.mesh.position);
+      // Ring center needs world position for the shader
+      p.mesh.getWorldPosition(_wp);
+      p.ringMesh.material.uniforms.uCenter.value.copy(_wp);
     }
+    // Get planet world position for moon orbits
+    p.mesh.getWorldPosition(_wp);
     p.moons.forEach(m => {
       if (!paused) m.angle += m.speed * (isTarget ? .08 : mul);
       m.mesh.position.set(
-        p.mesh.position.x + Math.cos(m.angle) * m.dist,
-        p.mesh.position.y,
-        p.mesh.position.z + Math.sin(m.angle) * m.dist,
+        _wp.x + Math.cos(m.angle) * m.dist,
+        _wp.y,
+        _wp.z + Math.sin(m.angle) * m.dist,
       );
       m.mesh.material.uniforms.uTime.value = t;
     });

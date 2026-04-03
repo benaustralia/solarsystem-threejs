@@ -244,6 +244,9 @@ PLANETS.forEach(p => {
     ringMesh = new THREE.Mesh(rg, mkRingMat(ir, or));
     ringPivot = new THREE.Object3D(); ringPivot.rotation.z = p.tilt;
     ringPivot.add(ringMesh); ringMesh.renderOrder = 2;
+    // Put planet inside pivot so sphere + ring tilt together
+    ringPivot.add(mesh);
+    mat.uniforms.uTilt.value = 0; // tilt handled by pivot, not shader
     scene.add(ringPivot);
   }
 

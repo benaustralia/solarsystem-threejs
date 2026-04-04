@@ -67,3 +67,23 @@ bun run serve.ts    # Serve at http://localhost:3000 (+ LAN IP:3000)
 
 ## Known Issues
 - Foreground planets (between camera and sun) appear in the lower portion of the viewport due to camera elevation — occasionally may overlap button rows depending on orbital position
+
+## Session Summary (2026-04-04)
+
+**Sun improvements**: Granulation, limb darkening, sunspots with penumbra, solar flares, 3-layer corona glow
+
+**Dwarf planets added**: Ceres, Pluto (with Charon, Nix, Hydra), Haumea (with Hi'iaka), Makemake, Eris (with Dysnomia) — each with unique procedural shaders
+
+**'Oumuamua**: Interstellar flyby on a 120s hyperbolic loop with tumbling elongated shape
+
+**Lighting overhaul**: All bodies raised to 0.40-0.45 ambient for consistent visibility, including texture-based and procedural planets
+
+**True Scale removed**: Button, toggle, applyScale, tsLabels — all stripped
+
+**Highlight ring**: Solid white ring on hover (button or canvas), scales with camera distance, always renders on top
+
+**Camera rotation on hover**: Smoothly rotates to face hovered planet, nudges angle to avoid overlap with nearby planets
+
+**UI layout**: Two-row buttons (planets + dwarf planets), canvas shifted up 4vh, camera elevation 0.32, bullet point facts
+
+**Known issue**: Foreground planets can occasionally overlap the button rows due to camera elevation angle

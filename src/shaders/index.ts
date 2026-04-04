@@ -35,12 +35,71 @@ uniform float uTime;
 varying vec3 vLocal;
 varying vec3 vWorldN;
 varying vec3 vWorldPos;
+
+// Higher-frequency noise for granulation
+float granule(vec3 p){
+  float v=0., a=.5;
+  for(int i=0;i<3;i++){v+=a*abs(n3(p)*2.-1.); a*=.5; p*=2.5;}
+  return v;
+}
+
 void main(){
   vec3 N=normalize(vWorldN);
-  float n=fbm(vLocal*2.+uTime*.04),m=fbm(vLocal*5.+uTime*.07);
-  vec3 col=mix(vec3(1.,.35,0.),vec3(1.,.92,.15),n+m*.25);
   vec3 vdir=normalize(cameraPosition-vWorldPos);
-  col*=(0.4+0.6*max(0.,dot(N,vdir)));
+  float NdV=max(0.,dot(N,vdir));
+
+  // Limb darkening — edges appear darker and redder
+  float limb=pow(NdV, .45);
+
+  // Animated coordinate basis
+  float t=uTime*.02;
+  vec3 p=vLocal;
+
+  // Large-scale convection patterns (supergranulation)
+  float n1=fbm(p*1.8+t*.3);
+  float n2=fbm(p*3.5+vec3(t*.5,-t*.3,t*.2));
+
+  // Fine granulation — small bright cells with dark lanes
+  float gran=granule(p*12.+t*.8);
+  float cells=smoothstep(.25,.55,gran)*.15;
+
+  // Sunspots — slow-moving dark regions
+  float spot1=fbm(p*1.2+vec3(t*.05,0.,t*.03));
+  float spot2=fbm(p*2.4+vec3(-t*.04,t*.06,0.));
+  float spotMask=smoothstep(.62,.68,spot1)*smoothstep(.58,.65,spot2);
+  float spotDark=spotMask*.55;
+
+  // Penumbra around spots — slightly darker ring
+  float penumbra=smoothstep(.55,.62,spot1)*smoothstep(.52,.58,spot2)*.2;
+
+  // Active regions — bright plages near spots
+  float plage=smoothstep(.48,.56,spot1)*(1.-spotMask)*.12;
+
+  // Color: base ranges from deep orange through gold to near-white
+  vec3 deepOrange=vec3(1.,.28,0.);
+  vec3 brightOrange=vec3(1.,.55,.05);
+  vec3 gold=vec3(1.,.82,.2);
+  vec3 hotWhite=vec3(1.,.95,.75);
+
+  // Mix based on noise layers
+  vec3 col=mix(brightOrange,gold,n1*.8+n2*.3);
+  col=mix(col,hotWhite,smoothstep(.55,.75,n1+n2*.3)*.5+plage);
+  col+=cells*vec3(1.,.9,.6);
+
+  // Apply sunspots (dark umbra + brown penumbra)
+  col=mix(col,vec3(.3,.12,.02),spotDark);
+  col=mix(col,vec3(.6,.25,.05),penumbra);
+
+  // Pulsing bright regions — simulate solar flare activity
+  float flare=fbm(p*6.+vec3(t*2.,0.,0.));
+  col+=vec3(1.,.7,.2)*smoothstep(.7,.85,flare)*.15;
+
+  // Apply limb darkening — edges go redder/darker
+  col*=mix(vec3(.6,.15,.02),vec3(1.),limb);
+
+  // Slight overall brightness variation (solar cycle-like)
+  col*=.92+.08*sin(uTime*.005);
+
   gl_FragColor=vec4(col,1.);
 }`;
 
@@ -71,24 +130,34 @@ ${opts.hasLandMask ? 'uniform sampler2D uLandMask;' : ''}
 varying vec3 vLocal;
 varying vec3 vWorldN;
 varying vec3 vWorldPos;
+varying vec2 vUV;
 void main(){
   vec3 N=normalize(vWorldN);
   float cy=cos(-uRotY),sy=sin(-uRotY);
   vec3 p=vec3(vLocal.x*cy+vLocal.z*sy,vLocal.y,-vLocal.x*sy+vLocal.z*cy);
   float ct=cos(-uTilt),st=sin(-uTilt);
   p=vec3(p.x,p.y*ct-p.z*st,p.y*st+p.z*ct);
-  // UV from rotated local position
-  float lon=atan(-p.z,p.x);
-  float lat=asin(clamp(p.y,-1.,1.));
-  vec2 uv=vec2(lon/(2.*3.14159)+.5,lat/3.14159+.5);
+  // UV from geometry with rotation offset — RepeatWrapping handles the wrap
+  vec2 uv=vec2(vUV.x+uRotY/(2.*3.14159),vUV.y);
   vec3 col=texture2D(uTexture,uv).rgb;
   vec3 ldir=normalize(-vWorldPos);
   float diff=max(0.,dot(N,ldir));
   vec3 vdir=normalize(cameraPosition-vWorldPos);
 ${opts.cloudLayer ? `
-  float cloud=fbm(p*4.+vec3(uTime*.003,0.,0.));
-  float cl=smoothstep(.52,.62,cloud);
-  col=mix(col,vec3(.92,.94,.98),cl*.65);
+  float t2=uTime*.0006;
+  // Multiple cloud layers that evolve independently
+  float c1=fbm(p*3.5+vec3(t2,t2*.7,0.));
+  float c2=fbm(p*7.+vec3(-t2*1.3,t2*.4,t2*.8));
+  float c3=fbm(p*14.+vec3(t2*.5,-t2*1.1,t2*.6));
+  // Combine: large weather systems + medium formations + wispy detail
+  float cloud=c1*.55+c2*.3+c3*.15;
+  // Latitude-based density: more clouds at mid-latitudes, fewer at poles/equator
+  float latBias=smoothstep(0.,.35,abs(p.y))*smoothstep(.95,.6,abs(p.y));
+  cloud=cloud*(.6+latBias*.5);
+  float cl=smoothstep(.42,.58,cloud);
+  // Thin wispy edges, denser cores
+  float density=smoothstep(.42,.52,cloud)*.4+smoothstep(.52,.58,cloud)*.35;
+  col=mix(col,vec3(.94,.95,.98),density);
 ` : ''}
 ${opts.nightCities && opts.hasLandMask ? `
   float isLand=texture2D(uLandMask,uv).r;

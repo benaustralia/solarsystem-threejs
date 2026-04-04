@@ -6,12 +6,13 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#000;overflow:hidden;font-family:'Orbitron',sans-serif;touch-action:none}
-canvas{display:block;position:absolute;z-index:0;touch-action:none}
+canvas{display:block;position:absolute;z-index:0;touch-action:none;top:-4vh}
 #ui{position:absolute;inset:0;z-index:1;pointer-events:none}
 #title{position:absolute;top:clamp(12px,2vh,24px);left:0;right:0;text-align:center;
-  color:rgba(255,255,255,.7);font-size:clamp(11px,1.4vw,18px);letter-spacing:.3em;text-transform:uppercase}
-#name{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-  color:#fff;font-size:clamp(13px,1.8vw,22px);letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(255,255,255,.7);font-size:clamp(11px,1.4vw,18px);letter-spacing:.3em;text-transform:uppercase;
+  transition:opacity .4s}
+#name{position:absolute;top:clamp(42px,5.5vh,72px);left:0;right:0;text-align:center;
+  color:#fff;font-size:clamp(14px,1.8vw,24px);letter-spacing:.25em;text-transform:uppercase;
   opacity:0;transition:opacity .3s;pointer-events:none}
 #hint{position:absolute;bottom:clamp(70px,10vh,100px);left:0;right:0;text-align:center;
   color:rgba(255,255,255,.4);font-size:clamp(9px,1vw,13px);letter-spacing:.2em;text-transform:uppercase}
@@ -31,17 +32,58 @@ canvas{display:block;position:absolute;z-index:0;touch-action:none}
   background:radial-gradient(ellipse at 15% 20%,rgba(0,0,0,.6) 0%,transparent 60%)}
 #detail.show{opacity:1}
 #detail-info-wrap{padding:clamp(16px,3vh,40px) clamp(16px,3vw,40px);max-width:min(380px,48vw);pointer-events:all}
-#detail-name{color:#fff;font-size:clamp(22px,3.5vw,56px);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px}
+#detail-name{color:#fff;font-size:clamp(22px,3.5vw,56px);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;
+  transition:opacity .3s}
+#detail-info{transition:opacity .3s}
 #detail-info{color:rgba(255,255,255,.5);font-size:clamp(9px,1vw,15px);letter-spacing:.13em;
-  margin-bottom:20px;line-height:1.6;text-transform:uppercase}
-#kiki-btn,#back-btn{padding:9px 18px;background:rgba(255,255,255,.12);
+  margin-bottom:20px;line-height:2;text-transform:uppercase;white-space:nowrap}
+#detail-moon-name{color:#fff;font-size:clamp(14px,2vw,28px);letter-spacing:.18em;text-transform:uppercase;
+  margin-bottom:6px;opacity:0;transition:opacity .3s}
+#detail-moon-info{color:rgba(255,255,255,.45);font-size:clamp(8px,.85vw,13px);letter-spacing:.12em;
+  margin-bottom:16px;line-height:1.6;text-transform:uppercase;opacity:0;transition:opacity .3s}
+#detail-moon-name.show,#detail-moon-info.show{opacity:1}
+#moon-detail-box{position:absolute;top:clamp(16px,3vh,40px);left:clamp(16px,3vw,40px);
+  padding:16px 20px;width:min(460px,52vw);opacity:0;
+  pointer-events:none;transition:opacity .4s .3s}
+#moon-detail-box.show{opacity:1;pointer-events:all}
+#moon-detail-box .border-line{position:absolute;background:#fff}
+#moon-detail-box .bl-top{top:0;left:0;height:1px;width:0;animation:drawH .4s .1s forwards}
+#moon-detail-box .bl-right{top:0;right:0;width:1px;height:0;animation:drawV .3s .5s forwards}
+#moon-detail-box .bl-bottom{bottom:0;right:0;height:1px;width:0;animation:drawH .4s .8s forwards;direction:rtl}
+#moon-detail-box .bl-left{bottom:0;left:0;width:1px;height:0;animation:drawV .3s 1.2s forwards;direction:rtl}
+#moon-detail-box:not(.show) .border-line{animation:none;width:0;height:0}
+@keyframes drawH{to{width:100%}}
+@keyframes drawV{to{height:100%}}
+#moon-detail-name{color:#fff;font-size:clamp(18px,2.8vw,40px);letter-spacing:.2em;
+  text-transform:uppercase;margin-bottom:6px}
+#moon-detail-info{color:rgba(255,255,255,.5);font-size:clamp(9px,1vw,14px);letter-spacing:.12em;
+  line-height:2;text-transform:uppercase;white-space:nowrap}
+#kiki-btn{padding:9px 18px;background:rgba(255,255,255,.12);
   border:1px solid rgba(255,255,255,.3);border-radius:3px;color:#fff;
   font-family:'Orbitron',sans-serif;font-size:clamp(9px,.9vw,13px);
   letter-spacing:.1em;text-transform:uppercase;cursor:pointer;display:none;margin-right:8px}
-#ts-labels{position:absolute;inset:0;pointer-events:none}
-.ts-label{position:absolute;color:rgba(255,255,255,.75);font-size:clamp(7px,.75vw,11px);
-  letter-spacing:.15em;text-transform:uppercase;white-space:nowrap;
-  transform:translate(-50%,-50%);opacity:0;transition:opacity .5s;pointer-events:none}
+#back-btn{position:fixed;bottom:clamp(16px,3vh,32px);left:clamp(16px,3vw,40px);
+  padding:9px 18px;background:rgba(255,255,255,.12);
+  border:1px solid rgba(255,255,255,.3);border-radius:3px;color:#fff;
+  font-family:'Orbitron',sans-serif;font-size:clamp(9px,.9vw,13px);
+  letter-spacing:.1em;text-transform:uppercase;cursor:pointer;display:none;z-index:10;
+  pointer-events:all}
+#planet-btns{position:absolute;bottom:clamp(82px,11vh,110px);left:50%;transform:translateX(-50%);
+  display:flex;gap:8px;pointer-events:all}
+#dwarf-btns{position:absolute;bottom:clamp(52px,7vh,72px);left:50%;transform:translateX(-50%);
+  display:flex;gap:8px;pointer-events:all}
+#planet-btns .planet-btn,#dwarf-btns .dwarf-btn{padding:6px 14px;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.25);border-radius:3px;color:rgba(255,255,255,.7);
+  font-family:'Orbitron',sans-serif;font-size:clamp(7px,.75vw,11px);
+  letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s,color .2s}
+#planet-btns .planet-btn:hover,#planet-btns .planet-btn:focus,
+#dwarf-btns .dwarf-btn:hover,#dwarf-btns .dwarf-btn:focus{background:rgba(255,255,255,.2);color:#fff;outline:none}
+#moon-btns{margin-top:16px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+#moon-btns .moon-btn{padding:6px 14px;background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.25);border-radius:3px;color:rgba(255,255,255,.7);
+  font-family:'Orbitron',sans-serif;font-size:clamp(7px,.75vw,11px);
+  letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s,color .2s}
+#moon-btns .moon-btn:hover,#moon-btns .moon-btn:focus{background:rgba(255,255,255,.2);color:#fff;outline:none}
 #kiki-overlay{position:fixed;inset:0;z-index:100;display:none;pointer-events:none}
 #kiki-map{position:absolute;bottom:clamp(60px,8vh,80px);right:clamp(12px,2vw,24px);
   width:min(340px,44vw);height:min(240px,38vh);border:1px solid rgba(255,255,255,.3);
@@ -54,20 +96,30 @@ canvas{display:block;position:absolute;z-index:0;touch-action:none}
 <div id="ui">
   <div id="title">Solar System</div>
   <div id="name"></div>
-  <div id="hint">Tap any planet to explore</div>
+  <div id="planet-btns"></div>
+  <div id="dwarf-btns"></div>
   <div id="btns">
     <div class="tog" id="bSpd" onclick="toggleSpeed()"><span>Fast Orbits</span><div class="tog-switch"></div></div>
-    <div class="tog" id="bScl" onclick="toggleScale()"><span>True Scale</span><div class="tog-switch"></div></div>
   </div>
   <div id="detail">
     <div id="detail-info-wrap">
       <div id="detail-name"></div>
       <div id="detail-info"></div>
+      <div id="detail-moon-name"></div>
+      <div id="detail-moon-info"></div>
       <button id="kiki-btn" onclick="openKiki()">Kiki's House</button>
-      <button id="back-btn" onclick="closeDetail()">&#8592; Back</button>
+      <div id="moon-btns"></div>
+    </div>
+    <button id="back-btn" onclick="closeDetail()">&#8592; Back</button>
+    <div id="moon-detail-box">
+      <div class="border-line bl-top"></div>
+      <div class="border-line bl-right"></div>
+      <div class="border-line bl-bottom"></div>
+      <div class="border-line bl-left"></div>
+      <div id="moon-detail-name"></div>
+      <div id="moon-detail-info"></div>
     </div>
   </div>
-  <div id="ts-labels"></div>
 </div>
 <div id="kiki-overlay">
   <div id="kiki-map"></div>

@@ -28,7 +28,7 @@ window.addEventListener('resize', () => {
   cam.aspect = innerWidth / innerHeight;
   cam.fov = innerHeight > innerWidth ? 75 : 55;
   cam.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
-  if (!state.trueScale) state.targetRadius = defRadius();
+  state.targetRadius = defRadius();
 });
 
 // Earth land mask
@@ -82,26 +82,24 @@ const TEX_URLS: Record<string, string> = {
   uranus:   WM + '9/95/Solarsystemscope_texture_2k_uranus.jpg',
   neptune:  WM + '1/1e/Solarsystemscope_texture_2k_neptune.jpg',
   moon:     WM + '2/26/Solarsystemscope_texture_2k_moon.jpg',
-  io:       WM + 'e/e4/Io_from_Galileo_and_Voyager_missions.jpg',
   europa:   WM + '2/26/Europa_Voyager_GalileoSSI_global_mosaic.jpg',
   titan:    WM + 'b/bc/PIA22770-SaturnMoon-Titan-Surface-20181206.jpg',
 };
 
 // Per-planet atmosphere/lighting config for texture shader
 const TEX_OPTS: Record<string, Parameters<typeof fragTexPlanet>[0]> = {
-  mercury:  { ambient: 0.12, specPower: 16, specStrength: 0.03 },
-  venus:    { ambient: 0.25, rimColor: 'vec3(.98,.92,.62)', rimPower: 2, rimStrength: 0.6 },
-  earth:    { ambient: 0.2, rimColor: 'vec3(.28,.55,.95)', rimPower: 2.5, rimStrength: 0.7,
+  mercury:  { ambient: 0.45, specPower: 16, specStrength: 0.03 },
+  venus:    { ambient: 0.50, rimColor: 'vec3(.98,.92,.62)', rimPower: 2, rimStrength: 0.6 },
+  earth:    { ambient: 0.45, rimColor: 'vec3(.28,.55,.95)', rimPower: 2.5, rimStrength: 0.7,
               specPower: 28, specStrength: 0.15, cloudLayer: true, nightCities: true, hasLandMask: true },
-  mars:     { ambient: 0.15, rimColor: 'vec3(.85,.55,.38)', rimPower: 3, rimStrength: 0.35 },
-  jupiter:  { ambient: 0.2, rimColor: 'vec3(.8,.7,.5)', rimPower: 3, rimStrength: 0.15, specPower: 6, specStrength: 0.06 },
-  saturn:   { ambient: 0.18, rimColor: 'vec3(.75,.80,.85)', rimPower: 2.5, rimStrength: 0.1, specPower: 5, specStrength: 0.06 },
-  uranus:   { ambient: 0.2, rimColor: 'vec3(.55,.90,.95)', rimPower: 3, rimStrength: 0.35 },
-  neptune:  { ambient: 0.18, rimColor: 'vec3(.35,.65,.98)', rimPower: 2, rimStrength: 0.5 },
-  moon:     { ambient: 0.06, specPower: 3, specStrength: 0.03 },
-  io:       { ambient: 0.15 },
-  europa:   { ambient: 0.15, specPower: 32, specStrength: 0.3 },
-  titan:    { ambient: 0.2, rimColor: 'vec3(.92,.52,.06)', rimPower: 1.8, rimStrength: 0.55 },
+  mars:     { ambient: 0.45, rimColor: 'vec3(.85,.55,.38)', rimPower: 3, rimStrength: 0.35 },
+  jupiter:  { ambient: 0.45, rimColor: 'vec3(.8,.7,.5)', rimPower: 3, rimStrength: 0.15, specPower: 6, specStrength: 0.06 },
+  saturn:   { ambient: 0.45, rimColor: 'vec3(.75,.80,.85)', rimPower: 2.5, rimStrength: 0.1, specPower: 5, specStrength: 0.06 },
+  uranus:   { ambient: 0.45, rimColor: 'vec3(.55,.90,.95)', rimPower: 3, rimStrength: 0.35 },
+  neptune:  { ambient: 0.45, rimColor: 'vec3(.35,.65,.98)', rimPower: 2, rimStrength: 0.5 },
+  moon:     { ambient: 0.45, specPower: 3, specStrength: 0.03 },
+  europa:   { ambient: 0.45, specPower: 32, specStrength: 0.3 },
+  titan:    { ambient: 0.45, rimColor: 'vec3(.92,.52,.06)', rimPower: 1.8, rimStrength: 0.55 },
 };
 
 const texLoader = new THREE.TextureLoader();
@@ -200,14 +198,49 @@ setTimeout(buildStars, 100);
 // Sun
 const sunMat = mkPlanetMat('sun');
 const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(SUN_DR, 64, 32), sunMat);
-sunMesh.userData = { name: 'Sun', isPlanet: false };
+sunMesh.userData = { name: 'Sun', isPlanet: false, radius: SUN_DR };
 scene.add(sunMesh);
-const glowMesh = new THREE.Sprite(new THREE.SpriteMaterial({
-  map: radialTex(128, [[0, 'rgba(255,200,50,.5)'], [.4, 'rgba(255,140,0,.15)'], [1, 'rgba(0,0,0,0)']]),
+// Inner corona — bright, tight halo
+const glowInner = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: radialTex(256, [
+    [0, 'rgba(255,240,200,.7)'],
+    [.15, 'rgba(255,200,80,.45)'],
+    [.35, 'rgba(255,140,30,.12)'],
+    [.6, 'rgba(255,80,0,.03)'],
+    [1, 'rgba(0,0,0,0)'],
+  ]),
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
 }));
-glowMesh.scale.set(SUN_DR * 4, SUN_DR * 4, 1);
-scene.add(glowMesh);
+glowInner.scale.set(SUN_DR * 3.5, SUN_DR * 3.5, 1);
+scene.add(glowInner);
+
+// Outer corona — diffuse, wider glow
+const glowOuter = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: radialTex(256, [
+    [0, 'rgba(255,180,60,.18)'],
+    [.2, 'rgba(255,120,20,.08)'],
+    [.5, 'rgba(255,60,0,.02)'],
+    [1, 'rgba(0,0,0,0)'],
+  ]),
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+glowOuter.scale.set(SUN_DR * 8, SUN_DR * 8, 1);
+scene.add(glowOuter);
+
+// Subtle warm ambient glow — very large, barely visible
+const glowAmbient = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: radialTex(128, [
+    [0, 'rgba(255,100,20,.06)'],
+    [.3, 'rgba(255,60,0,.02)'],
+    [1, 'rgba(0,0,0,0)'],
+  ]),
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+}));
+glowAmbient.scale.set(SUN_DR * 14, SUN_DR * 14, 1);
+scene.add(glowAmbient);
+
+// Keep glowMesh alias for compatibility
+const glowMesh = glowInner;
 
 // Planet runtime object
 export interface PlanetObj {
@@ -251,7 +284,7 @@ PLANETS.forEach(p => {
   }
 
   const moonObjs: MoonObj[] = p.moons.map(m => {
-    const mm = new THREE.Mesh(new THREE.SphereGeometry(m.dR, 24, 12), mkPlanetMat(m.shader));
+    const mm = new THREE.Mesh(new THREE.SphereGeometry(m.dR, 48, 24), mkPlanetMat(m.shader));
     mm.userData = { name: m.name, isMoon: true, radius: m.dR };
     scene.add(mm);
     return { mesh: mm, speed: m.speed, dist: m.dD, angle: Math.random() * Math.PI * 2, dR: m.dR, tR: m.tR, dD: m.dD, tD: m.tD };
@@ -265,4 +298,30 @@ PLANETS.forEach(p => {
   });
 });
 
-export { sunMat, sunMesh, glowMesh };
+// 'Oumuamua — interstellar object on a hyperbolic flyby
+const oumuamuaMat = mkPlanetMat('generic');
+// Elongated shape — stretched sphere
+const oumuamuaMesh = new THREE.Mesh(new THREE.SphereGeometry(0.4, 16, 8), oumuamuaMat);
+oumuamuaMesh.scale.set(1, 0.3, 0.3); // ~10:1 elongation
+oumuamuaMesh.userData = { name: "'Oumuamua", isOumuamua: true, radius: 0.4 };
+scene.add(oumuamuaMesh);
+
+// Trail for 'Oumuamua
+const oumuamuaTrailPts = new Array(80).fill(null).map(() => new THREE.Vector3());
+const oumuamuaTrailGeo = new THREE.BufferGeometry().setFromPoints(oumuamuaTrailPts);
+const oumuamuaTrail = new THREE.Line(oumuamuaTrailGeo, new THREE.LineBasicMaterial({
+  color: 0x886644, transparent: true, opacity: 0.4, depthWrite: false,
+}));
+scene.add(oumuamuaTrail);
+
+// Highlight ring — shown around hovered planet (camera-facing)
+const highlightRingGeo = new THREE.RingGeometry(0.85, 1.0, 64);
+const highlightRing = new THREE.Mesh(highlightRingGeo, new THREE.MeshBasicMaterial({
+  color: 0xffffff, side: THREE.DoubleSide,
+  depthTest: false, depthWrite: false,
+}));
+highlightRing.visible = false;
+highlightRing.renderOrder = 999;
+scene.add(highlightRing);
+
+export { sunMat, sunMesh, glowMesh, glowOuter, glowAmbient, oumuamuaMesh, oumuamuaMat, oumuamuaTrailPts, oumuamuaTrailGeo, highlightRing };

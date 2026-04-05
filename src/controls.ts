@@ -9,15 +9,24 @@ const $ = (id: string) => document.getElementById(id)!;
 const factsHTML = (name: string) => (PINFO[name] || '').split(' \u00b7 ').map(f => `\u2022 ${f}`).join('<br>');
 const nameEl = $('name') as HTMLElement;
 
-// Raycaster
+// Hit detection — project planet positions to screen and find nearest within radius
+const _proj = new THREE.Vector3();
+const HIT_RADIUS = 30; // pixels — generous hover target
+function doRaycast(cx: number, cy: number) {
+  const rect = el.getBoundingClientRect();
+  let best: any = null, bestDist = HIT_RADIUS;
+  for (const mesh of planetMeshes) {
+    _proj.copy(mesh.position);
+    _proj.project(cam);
+    const sx = ((_proj.x + 1) / 2) * rect.width + rect.left;
+    const sy = ((-_proj.y + 1) / 2) * rect.height + rect.top;
+    const d = Math.hypot(cx - sx, cy - sy);
+    if (d < bestDist) { bestDist = d; best = mesh; }
+  }
+  return best;
+}
 const raycaster = new THREE.Raycaster();
 const _mouse = new THREE.Vector2();
-function doRaycast(cx: number, cy: number) {
-  _mouse.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1);
-  raycaster.setFromCamera(_mouse, cam);
-  const hits = raycaster.intersectObjects(planetMeshes);
-  return hits.length ? hits[0].object : null;
-}
 
 // Pointer events — hover + tap only, no drag-to-orbit
 const el = renderer.domElement;
@@ -34,7 +43,8 @@ el.addEventListener('pointerdown', (e: PointerEvent) => {
 // Raycast against moon meshes of the current detail planet
 function doMoonRaycast(cx: number, cy: number) {
   if (!state.detailPObj) return null;
-  _mouse.set((cx / innerWidth) * 2 - 1, -(cy / innerHeight) * 2 + 1);
+  const rect = el.getBoundingClientRect();
+  _mouse.set(((cx - rect.left) / rect.width) * 2 - 1, -((cy - rect.top) / rect.height) * 2 + 1);
   raycaster.setFromCamera(_mouse, cam);
   const moonMeshes = state.detailPObj.moons.map((m: any) => m.mesh);
   const hits = raycaster.intersectObjects(moonMeshes);
@@ -43,11 +53,7 @@ function doMoonRaycast(cx: number, cy: number) {
 
 el.addEventListener('pointermove', (e: PointerEvent) => {
   if (!state.detailActive) {
-    const hit = doRaycast(e.clientX, e.clientY);
-    state.hoveredObj = hit;
-    nameEl.textContent = hit ? hit.userData.name : '';
-    nameEl.style.opacity = hit ? '1' : '0';
-    el.style.cursor = hit ? 'pointer' : 'default';
+    // Planet hover handled by buttons only — canvas hover conflicts with camera rotation
   } else if (!state.moonDetailActive) {
     // Moon hover in detail view — lock on to avoid flicker from tiny targets
     const hit = doMoonRaycast(e.clientX, e.clientY);
@@ -116,7 +122,9 @@ el.addEventListener('wheel', (e: WheelEvent) => {
   state.lastInteract = Date.now();
 }, { passive: true });
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { if (state.kikiOpen) closeKiki(); else closeDetail(); }
+});
 
 // Planet buttons in overview
 (() => {
@@ -136,8 +144,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(
   });
   sunBtn.addEventListener('mouseleave', () => {
     if (state.hoveredObj === sunMesh) {
-      state.hoveredObj = null;
-      nameEl.style.opacity = '0';
+      state.hoveredObj = null;      nameEl.style.opacity = '0';
     }
   });
   container.appendChild(sunBtn);
@@ -158,8 +165,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDetail(
     });
     btn.addEventListener('mouseleave', () => {
       if (state.hoveredObj === p.mesh) {
-        state.hoveredObj = null;
-        nameEl.style.opacity = '0';
+        state.hoveredObj = null;        nameEl.style.opacity = '0';
       }
     });
     (isDwarf ? dwarfContainer : container).appendChild(btn);
@@ -189,12 +195,10 @@ export function openDetail(name: string, mesh: any) {
   }
   ($('back-btn') as HTMLElement).style.display = 'block';
   $('detail').classList.add('show');
-  ($('btns') as HTMLElement).style.display = 'none';
   ($('planet-btns') as HTMLElement).style.display = 'none';
   ($('dwarf-btns') as HTMLElement).style.display = 'none';
   ($('title') as HTMLElement).style.opacity = '0';
-  nameEl.style.opacity = '0'; state.hoveredObj = null;
-  $('detail-moon-name').classList.remove('show');
+  nameEl.style.opacity = '0'; state.hoveredObj = null;  $('detail-moon-name').classList.remove('show');
   $('detail-moon-info').classList.remove('show');
   scene.traverse((obj: any) => {
     if (obj.isMesh || obj.isLine) {
@@ -277,7 +281,6 @@ export function closeDetail() {
   $('detail').classList.remove('show');
   ($('kiki-btn') as HTMLElement).style.display = 'none';
   ($('back-btn') as HTMLElement).style.display = 'none';
-  ($('btns') as HTMLElement).style.display = 'flex';
   ($('planet-btns') as HTMLElement).style.display = 'flex';
   ($('dwarf-btns') as HTMLElement).style.display = 'flex';
   ($('title') as HTMLElement).style.opacity = '1';
@@ -295,30 +298,98 @@ export function closeDetail() {
   lockedMoon = null;
 }
 
-// Toggles
-export function toggleSpeed() {
-  state.fast = !state.fast; $('bSpd').classList.toggle('on', state.fast);
-}
 
-// Kiki
+
+
+
+// Kiki — Google Earth-style zoom from Australia to street level (largo tempo)
+const KIKI_LAT = -37.8381275, KIKI_LNG = 145.1562756;
 let kikiMap: any = null;
+let kikiActive = false;
+
+// Click outside the map panel closes the overlay
+$('kiki-overlay').addEventListener('click', (e: Event) => {
+  if ((e.target as HTMLElement).id === 'kiki-overlay') closeKiki();
+});
+
 export function openKiki() {
-  $('kiki-overlay').style.display = 'block';
-  ($('kiki-overlay') as HTMLElement).style.pointerEvents = 'all';
+  kikiActive = true;
+  const overlay = $('kiki-overlay') as HTMLElement;
+  const label = $('kiki-label') as HTMLElement;
+  const closeBtn = $('kiki-close') as HTMLElement;
+  overlay.style.display = 'block';
+  overlay.style.pointerEvents = 'all';
   ($('detail-info-wrap') as HTMLElement).style.opacity = '0';
+  label.style.opacity = '0';
+  closeBtn.style.opacity = '0';
+
   if (!kikiMap) {
-    kikiMap = L.map('kiki-map', { zoomControl: false, attributionControl: false });
-    const tile = (lyrs: string, opts?: any) => L.tileLayer(`https://mt{s}.google.com/vt/lyrs=${lyrs}&x={x}&y={y}&z={z}`, { subdomains: '0123', maxZoom: 20, ...opts });
-    tile('s').addTo(kikiMap); tile('h', { opacity: .6 }).addTo(kikiMap);
-    const icon = L.divIcon({ className: '', html: '<div style="width:12px;height:12px;background:#f55;border-radius:50%;border:2px solid #fff;box-shadow:0 0 6px rgba(0,0,0,.8)"></div>', iconAnchor: [6, 6] });
-    L.marker([-37.8472, 145.1548], { icon }).addTo(kikiMap);
-    kikiMap.setView([-37.8472, 145.1548], 2);
-    setTimeout(() => kikiMap.flyTo([-37.8472, 145.1548], 18, { duration: 5 }), 300);
+    kikiMap = L.map('kiki-map', {
+      zoomControl: false, attributionControl: false,
+      keyboard: false, dragging: false, scrollWheelZoom: false,
+      doubleClickZoom: false, touchZoom: false, boxZoom: false,
+    });
+    // Google satellite (high-res 512px tiles) + hybrid labels
+    const tile = (lyrs: string, opts?: any) => L.tileLayer(
+      `https://mt{s}.google.com/vt/lyrs=${lyrs}&x={x}&y={y}&z={z}&scale=2`,
+      { subdomains: '0123', maxZoom: 22, tileSize: 512, zoomOffset: -1, ...opts },
+    );
+    tile('s').addTo(kikiMap);
+    tile('h', { opacity: .45 }).addTo(kikiMap);
   }
+
+  // Pause the Moon orbiting Earth while overlay is up
+  state.kikiOpen = true;
+
+  // Start centered on Australia so its shape is clearly visible surrounded by ocean
+  kikiMap.setView([-25.5, 134], 4);
+
+  // Largo: ~44 BPM — each beat ~1.4s. Gentle, unhurried descent for a 4-year-old
+  // Long fly durations with generous pauses to let each new view sink in
+  const stages = [
+    { lat: KIKI_LAT, lng: KIKI_LNG, zoom: 8,  dur: 5.0, pause: 2.5 },  // Australia → Victoria
+    { lat: KIKI_LAT, lng: KIKI_LNG, zoom: 12, dur: 5.0, pause: 2.0 },  // state → Melbourne metro
+    { lat: KIKI_LAT, lng: KIKI_LNG, zoom: 15, dur: 4.5, pause: 2.0 },  // metro → suburb
+    { lat: KIKI_LAT, lng: KIKI_LNG, zoom: 18, dur: 4.0, pause: 1.5 },  // suburb → street
+    { lat: KIKI_LAT, lng: KIKI_LNG, zoom: 20, dur: 3.5, pause: 0   },  // street → house
+  ];
+
+  let i = 0;
+  const nextStage = () => {
+    if (!kikiActive || i >= stages.length) {
+      // Final: show marker, label, close button
+      const icon = L.divIcon({
+        className: '',
+        html: '<div style="width:14px;height:14px;background:#f55;border-radius:50%;border:2px solid #fff;box-shadow:0 0 8px rgba(0,0,0,.9)"></div>',
+        iconAnchor: [7, 7],
+      });
+      L.marker([KIKI_LAT, KIKI_LNG], { icon }).addTo(kikiMap);
+      label.style.opacity = '1';
+      closeBtn.style.opacity = '1';
+      return;
+    }
+    const s = stages[i++];
+    kikiMap.flyTo([s.lat, s.lng], s.zoom, {
+      duration: s.dur,
+      easeLinearity: 0.1,  // very gentle easing — slow start, slow finish
+    });
+    // Fly duration + a pause to breathe and absorb each view
+    setTimeout(nextStage, s.dur * 1000 + s.pause * 1000);
+  };
+
+  // Let Australia sit for a moment before we begin descending
+  setTimeout(nextStage, 3000);
 }
 
 export function closeKiki() {
-  $('kiki-overlay').style.display = 'none';
-  ($('kiki-overlay') as HTMLElement).style.pointerEvents = 'none';
+  kikiActive = false;
+  state.kikiOpen = false;
+  const overlay = $('kiki-overlay') as HTMLElement;
+  overlay.style.display = 'none';
+  overlay.style.pointerEvents = 'none';
   ($('detail-info-wrap') as HTMLElement).style.opacity = '1';
+  ($('kiki-label') as HTMLElement).style.opacity = '0';
+  ($('kiki-close') as HTMLElement).style.opacity = '0';
+  // Destroy map so it reinitializes fresh next time
+  if (kikiMap) { kikiMap.remove(); kikiMap = null; }
 }

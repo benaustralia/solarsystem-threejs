@@ -16,18 +16,6 @@ canvas{display:block;position:absolute;z-index:0;touch-action:none;top:-4vh}
   opacity:0;transition:opacity .3s;pointer-events:none}
 #hint{position:absolute;bottom:clamp(70px,10vh,100px);left:0;right:0;text-align:center;
   color:rgba(255,255,255,.4);font-size:clamp(9px,1vw,13px);letter-spacing:.2em;text-transform:uppercase}
-#btns{position:absolute;bottom:clamp(16px,3vh,32px);left:50%;transform:translateX(-50%);
-  display:flex;gap:12px;pointer-events:all}
-.tog{display:flex;align-items:center;gap:8px;padding:8px 16px;
-  border:1px solid rgba(255,255,255,.3);border-radius:3px;cursor:pointer;
-  color:rgba(255,255,255,.7);font-family:'Orbitron',sans-serif;
-  font-size:clamp(8px,.9vw,12px);letter-spacing:.12em;text-transform:uppercase;
-  background:rgba(0,0,0,.5);user-select:none}
-.tog-switch{width:28px;height:14px;border-radius:7px;background:rgba(255,255,255,.2);position:relative}
-.tog-switch::after{content:'';position:absolute;left:2px;top:2px;width:10px;height:10px;
-  border-radius:50%;background:#fff;transition:transform .3s}
-.tog.on .tog-switch{background:rgba(100,200,255,.6)}
-.tog.on .tog-switch::after{transform:translateX(14px)}
 #detail{position:absolute;inset:0;opacity:0;pointer-events:none;transition:opacity .4s;
   background:radial-gradient(ellipse at 15% 20%,rgba(0,0,0,.6) 0%,transparent 60%)}
 #detail.show{opacity:1}
@@ -43,21 +31,14 @@ canvas{display:block;position:absolute;z-index:0;touch-action:none;top:-4vh}
   margin-bottom:16px;line-height:1.6;text-transform:uppercase;opacity:0;transition:opacity .3s}
 #detail-moon-name.show,#detail-moon-info.show{opacity:1}
 #moon-detail-box{position:absolute;top:clamp(16px,3vh,40px);left:clamp(16px,3vw,40px);
-  padding:16px 20px;width:min(460px,52vw);opacity:0;
-  pointer-events:none;transition:opacity .4s .3s}
+  padding:14px 16px 14px 16px;max-width:min(460px,calc(100vw - 32px));opacity:0;
+  pointer-events:none;transition:opacity .4s .3s;
+  border-left:1px solid #fff}
 #moon-detail-box.show{opacity:1;pointer-events:all}
-#moon-detail-box .border-line{position:absolute;background:#fff}
-#moon-detail-box .bl-top{top:0;left:0;height:1px;width:0;animation:drawH .4s .1s forwards}
-#moon-detail-box .bl-right{top:0;right:0;width:1px;height:0;animation:drawV .3s .5s forwards}
-#moon-detail-box .bl-bottom{bottom:0;right:0;height:1px;width:0;animation:drawH .4s .8s forwards;direction:rtl}
-#moon-detail-box .bl-left{bottom:0;left:0;width:1px;height:0;animation:drawV .3s 1.2s forwards;direction:rtl}
-#moon-detail-box:not(.show) .border-line{animation:none;width:0;height:0}
-@keyframes drawH{to{width:100%}}
-@keyframes drawV{to{height:100%}}
-#moon-detail-name{color:#fff;font-size:clamp(18px,2.8vw,40px);letter-spacing:.2em;
+#moon-detail-name{color:#fff;font-size:clamp(16px,2.8vw,40px);letter-spacing:.15em;
   text-transform:uppercase;margin-bottom:6px}
-#moon-detail-info{color:rgba(255,255,255,.5);font-size:clamp(9px,1vw,14px);letter-spacing:.12em;
-  line-height:2;text-transform:uppercase;white-space:nowrap}
+#moon-detail-info{color:rgba(255,255,255,.5);font-size:clamp(10px,1.2vw,14px);letter-spacing:.08em;
+  line-height:1.8;text-transform:uppercase}
 #kiki-btn{padding:9px 18px;background:rgba(255,255,255,.12);
   border:1px solid rgba(255,255,255,.3);border-radius:3px;color:#fff;
   font-family:'Orbitron',sans-serif;font-size:clamp(9px,.9vw,13px);
@@ -85,22 +66,26 @@ canvas{display:block;position:absolute;z-index:0;touch-action:none;top:-4vh}
   letter-spacing:.1em;text-transform:uppercase;cursor:pointer;transition:background .2s,color .2s}
 #moon-btns .moon-btn:hover,#moon-btns .moon-btn:focus{background:rgba(255,255,255,.2);color:#fff;outline:none}
 #kiki-overlay{position:fixed;inset:0;z-index:100;display:none;pointer-events:none}
-#kiki-map{position:absolute;bottom:clamp(60px,8vh,80px);right:clamp(12px,2vw,24px);
-  width:min(340px,44vw);height:min(240px,38vh);border:1px solid rgba(255,255,255,.3);
-  border-radius:4px;overflow:hidden;pointer-events:all}
-#kiki-close{position:absolute;top:clamp(12px,2vh,20px);right:clamp(12px,2vw,20px);
-  padding:8px 14px;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.3);
-  border-radius:3px;color:#fff;font-family:'Orbitron',sans-serif;font-size:12px;
-  letter-spacing:.1em;cursor:pointer;pointer-events:all}
+#kiki-map{position:absolute;top:calc(50% - 2vh);left:50%;transform:translate(-50%,-50%);
+  width:88vw;height:78vh;border:1px solid rgba(255,255,255,.25);
+  border-radius:8px;overflow:hidden;pointer-events:all;box-shadow:0 0 60px rgba(0,0,0,.9)}
+#kiki-label{position:absolute;bottom:12px;left:0;right:0;
+  text-align:center;color:#fff;font-family:'Orbitron',sans-serif;
+  opacity:0;transition:opacity 1s;pointer-events:none;z-index:101}
+#kiki-label h2{font-size:clamp(12px,1.6vw,22px);letter-spacing:.2em;text-transform:uppercase;
+  text-shadow:0 2px 12px rgba(0,0,0,.8);margin-bottom:2px}
+#kiki-label p{font-size:clamp(8px,.9vw,13px);letter-spacing:.15em;color:rgba(255,255,255,.6);
+  text-shadow:0 1px 8px rgba(0,0,0,.8)}
+#kiki-close{position:absolute;top:8px;right:8px;
+  padding:6px 12px;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.3);
+  border-radius:3px;color:#fff;font-family:'Orbitron',sans-serif;font-size:11px;
+  letter-spacing:.1em;cursor:pointer;pointer-events:all;z-index:102;opacity:0;transition:opacity .6s}
 </style></head><body>
 <div id="ui">
   <div id="title">Solar System</div>
   <div id="name"></div>
   <div id="planet-btns"></div>
   <div id="dwarf-btns"></div>
-  <div id="btns">
-    <div class="tog" id="bSpd" onclick="toggleSpeed()"><span>Fast Orbits</span><div class="tog-switch"></div></div>
-  </div>
   <div id="detail">
     <div id="detail-info-wrap">
       <div id="detail-name"></div>
@@ -112,18 +97,16 @@ canvas{display:block;position:absolute;z-index:0;touch-action:none;top:-4vh}
     </div>
     <button id="back-btn" onclick="closeDetail()">&#8592; Back</button>
     <div id="moon-detail-box">
-      <div class="border-line bl-top"></div>
-      <div class="border-line bl-right"></div>
-      <div class="border-line bl-bottom"></div>
-      <div class="border-line bl-left"></div>
       <div id="moon-detail-name"></div>
       <div id="moon-detail-info"></div>
     </div>
   </div>
 </div>
 <div id="kiki-overlay">
-  <div id="kiki-map"></div>
-  <button id="kiki-close" onclick="closeKiki()">&#x2715; Close</button>
+  <div id="kiki-map">
+    <div id="kiki-label"><h2>Kiki's House</h2><p>Blackburn South, Melbourne</p></div>
+    <button id="kiki-close" onclick="closeKiki()">&#x2715; Close</button>
+  </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>

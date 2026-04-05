@@ -6,7 +6,6 @@ Interactive 3D solar system visualization using Three.js with photo textures and
 - **Runtime/Bundler**: Bun (build.ts bundles, serve.ts serves on :3000, hostname 0.0.0.0 for LAN access)
 - **Rendering**: Three.js r128 (loaded via CDN in index.html)
 - **Shaders**: Custom GLSL vertex/fragment shaders for planets, rings, sun, and all moons
-- **Maps**: Leaflet (CDN) for "Kiki's House" Earth detail view
 - **Deploy**: Netlify (netlify.toml, builds to dist/)
 
 ## Build & Run
@@ -19,7 +18,7 @@ bun run serve.ts    # Serve at http://localhost:3000 (+ LAN IP:3000)
 - `src/main.ts` — Entry point, wires controls to window, starts animation loop
 - `src/scene.ts` — Three.js setup: renderer, camera, starfield, sun (with multi-layer corona), planet meshes (48x24 segments), moon meshes (48x24 segments), Keplerian orbits, Earth land-mask texture, photo texture loading from Wikimedia Commons, highlight ring mesh, 'Oumuamua mesh + trail
 - `src/animate.ts` — RAF loop: orbit positions, camera rotation on hover (with planet isolation), detail-view transitions, moon-detail camera with front-lighting, 'Oumuamua hyperbolic flyby, highlight ring positioning
-- `src/controls.ts` — Raycasting (planets + moons), pointer/touch/scroll events, detail panel, moon detail with animated border box, Leaflet map, toggle handlers, button hover → highlight ring + camera rotation
+- `src/controls.ts` — Screen-space hit detection (planets) + raycasting (moons), pointer/touch/scroll events, detail panel, moon detail with animated border box, Kiki's House (Leaflet map — pending rework), button hover → highlight ring + camera rotation
 - `src/data.ts` — Constants (AU, ER, YEAR), planet/moon/dwarf planet definitions (PlanetDef, MoonDef), orbital elements, planet + moon info text (PINFO)
 - `src/state.ts` — Single shared mutable state object (camera, zoom, detail view, moon detail)
 - `src/shaders/colors.ts` — Parameterized GLSL color function generator (buildColorFn) with unique config per body. Every moon has its own shader — no generic fallbacks
@@ -27,7 +26,7 @@ bun run serve.ts    # Serve at http://localhost:3000 (+ LAN IP:3000)
 - `src/shaders/*.glsl` — noise (fbm), planet vertex (passes vLocal, vWorldN, vWorldPos, vUV), ring vertex/fragment
 
 ## Navigation Flow
-1. **Overview** — All planets + dwarf planets orbiting the sun. Hover a planet (canvas or button): name appears below "SOLAR SYSTEM" title, white highlight ring appears around planet, camera rotates to face it, orbits pause. Click: enters planet detail.
+1. **Overview** — All planets + dwarf planets orbiting the sun. Hover a planet button: name appears below "SOLAR SYSTEM" title, white highlight ring appears around planet, camera rotates to face it, orbits pause. Click button: enters planet detail. Canvas hover is disabled (conflicts with camera rotation).
 2. **Planet detail** — Zoomed view of planet + moons. Camera distance is `r * 5` for consistent sizing. Hover a moon: name + info shown, lock-on prevents flicker (40px unlock radius), everything pauses. Click a moon: enters moon detail.
 3. **Moon detail** — Moon zoomed up and front-lit (repositioned so sun is behind camera). Moon rotates to show all sides. Planet + other moons hidden. Animated border box draws around moon info (CSS keyframe trace: top→right→bottom→left). Back button returns to planet detail.
 4. **Back navigation** — Moon detail → planet detail → overview. Escape key also works.
@@ -87,3 +86,13 @@ bun run serve.ts    # Serve at http://localhost:3000 (+ LAN IP:3000)
 **UI layout**: Two-row buttons (planets + dwarf planets), canvas shifted up 4vh, camera elevation 0.32, bullet point facts
 
 **Known issue**: Foreground planets can occasionally overlap the button rows due to camera elevation angle
+
+## Session Summary (2026-04-05)
+
+**Fast toggle removed**: Speed multiplier, toggle button, and all related CSS/state/code stripped
+
+**Canvas planet hover removed**: Raycasting hover on canvas conflicted with camera rotation (planet moves away from cursor on hover). Planet interaction is now button-only in overview. Canvas click to open detail still works.
+
+**Hit detection reworked**: Planet hit detection changed from raycasting to screen-space proximity (project 3D→2D, find nearest within 30px). Raycasting kept for moon hover in detail view. Fixed -4vh canvas offset bug in coordinate mapping (was using `innerWidth/Height` instead of `canvas.getBoundingClientRect()`).
+
+**Kiki's House pending rework**: Currently uses Leaflet map overlay (CDN dependency still in index.html). Planned: rotate globe to show Australia → highlight Melbourne → slow zoom to photo of house. Leaflet dependency to be removed.

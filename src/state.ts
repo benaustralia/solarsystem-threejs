@@ -10,7 +10,6 @@ export const state = {
   px: 0,
   py: 0,
   lastInteract: 0,
-  fast: false,
   hoveredObj: null as any,
   detailActive: false,
   detailTarget: null as any,
@@ -24,4 +23,5 @@ export const state = {
   moonDetailMoonObj: null as any,
   moonCamSnapped: false,
   moonSavedPos: null as any,
+  kikiOpen: false,
 };

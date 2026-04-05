@@ -1,5 +1,5 @@
-import { YEAR } from './data';
-import { renderer, scene, cam, pObjs, kepPos, sunMat, glowMesh, glowOuter, glowAmbient, oumuamuaMesh, oumuamuaMat, oumuamuaTrailPts, oumuamuaTrailGeo, highlightRing } from './scene';
+import { YEAR, SUN_DR } from './data';
+import { renderer, scene, cam, pObjs, kepPos, sunMat, sunMesh, glowMesh, glowOuter, glowAmbient, oumuamuaMesh, oumuamuaMat, oumuamuaTrailPts, oumuamuaTrailGeo, highlightRing } from './scene';
 import { state } from './state';
 
 declare const THREE: any;
@@ -8,7 +8,7 @@ const _vA = new THREE.Vector3(), _vB = new THREE.Vector3(), _vC = new THREE.Vect
 
 export function animate() {
   requestAnimationFrame(animate);
-  const mul = state.fast ? 12 : 1, t = performance.now() * .001;
+  const t = performance.now() * .001;
   const s = state;
 
   const paused = !!s.hoveredObj;
@@ -23,28 +23,26 @@ export function animate() {
       return;
     }
     if (!isTarget && !paused) {
-      p.M += (2 * Math.PI / (p.period * YEAR)) * mul;
+      p.M += (2 * Math.PI / (p.period * YEAR));
       const orbPos = kepPos(p.dD, p.e, p.inc, p.O, p.w, p.M);
       if (p.ringPivot) {
-        // Saturn: mesh is child of pivot, so move pivot and keep mesh at local origin
         p.ringPivot.position.copy(orbPos);
         p.mesh.position.set(0, 0, 0);
       } else {
         p.mesh.position.copy(orbPos);
       }
     }
-    if (!paused) p.rotAng += p.rotSpd * (isTarget ? .15 : mul);
+    if (!paused && !s.kikiOpen) p.rotAng += p.rotSpd * (isTarget ? .15 : 1);
     p.mat.uniforms.uRotY.value = p.rotAng;
     p.mat.uniforms.uTime.value = t;
     if (p.ringPivot) {
-      // Ring center needs world position for the shader
       p.mesh.getWorldPosition(_wp);
       p.ringMesh.material.uniforms.uCenter.value.copy(_wp);
     }
     // Get planet world position for moon orbits
     p.mesh.getWorldPosition(_wp);
     p.moons.forEach(m => {
-      if (!paused) m.angle += m.speed * (isTarget ? .08 : mul);
+      if (!paused && !s.kikiOpen) m.angle += m.speed * (isTarget ? .08 : 1);
       m.mesh.position.set(
         _wp.x + Math.cos(m.angle) * m.dist,
         _wp.y,
@@ -55,6 +53,16 @@ export function animate() {
   });
 
   sunMat.uniforms.uTime.value = t;
+  // Enlarge sun in detail view so it looms large in the background
+  const sunScale = s.detailActive && !s.moonDetailActive ? 8 : 1;
+  sunMesh.scale.setScalar(sunScale);
+  const gi = SUN_DR * 3.5 * sunScale;
+  glowMesh.scale.set(gi, gi, 1);
+  const go = SUN_DR * 8 * sunScale;
+  glowOuter.scale.set(go, go, 1);
+  const ga = SUN_DR * 14 * sunScale;
+  glowAmbient.scale.set(ga, ga, 1);
+  sunMesh.position.set(0, 0, 0);
   glowMesh.position.set(0, 0, 0);
   glowOuter.position.set(0, 0, 0);
   glowAmbient.position.set(0, 0, 0);
@@ -123,10 +131,13 @@ export function animate() {
     // Consistent elevated view — ~30° above equatorial plane
     const elev = 0.52; // radians (~30°)
     if (!s.detailCamSnapped) {
+      // Position camera on the far side of the planet from the sun,
+      // elevated so the enlarged sun is visible above/behind the planet
+      const awayFromSun = Math.atan2(_wp.x, _wp.z); // planet angle = away from sun
       cam.position.set(
-        _wp.x + camDist * Math.cos(elev),
+        _wp.x + Math.sin(awayFromSun) * camDist * Math.cos(elev),
         _wp.y + camDist * Math.sin(elev),
-        _wp.z + camDist * 0.15,
+        _wp.z + Math.cos(awayFromSun) * camDist * Math.cos(elev),
       );
       s.detailCamSnapped = true;
     }
@@ -135,13 +146,20 @@ export function animate() {
     if (t * 1000 - s.lastInteract > 4000 && !paused) s.camT += .00018;
     s.radius += (s.targetRadius - s.radius) * .08;
 
-    // When hovering a planet, rotate camera so planet is in front, isolated from others
+    // When hovering a planet, rotate camera to show it clearly
     if (s.hoveredObj && !s.detailActive) {
       s.hoveredObj.getWorldPosition(_wp);
-      let targetT = Math.atan2(_wp.x, _wp.z);
+      const planetAngle = Math.atan2(_wp.x, _wp.z);
       const targetDist = Math.sqrt(_wp.x * _wp.x + _wp.z * _wp.z);
 
-      // Check if any other planet is too close in angle — if so, nudge camera
+      // Offset camera angle so the planet doesn't sit directly between
+      // camera and sun — that pushes foreground planets low on screen
+      // due to camera elevation. Quadratic scaling: inner planets barely
+      // change, outer planets get large offset to project above buttons.
+      const ratio = Math.min(targetDist / s.radius, 1);
+      let targetT = planetAngle + ratio * ratio * 3.0;
+
+      // Angular overlap avoidance: nudge away from nearby planets
       for (let i = 0; i < pObjs.length; i++) {
         if (pObjs[i].mesh === s.hoveredObj) continue;
         pObjs[i].mesh.getWorldPosition(_vA);
@@ -150,9 +168,7 @@ export function animate() {
         let angleDiff = otherT - targetT;
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        // Only worry about planets at similar distance (within 2x) and close angle
         if (Math.abs(angleDiff) < 0.15 && otherDist > targetDist * 0.3 && otherDist < targetDist * 2) {
-          // Nudge away from the overlapping planet
           targetT += angleDiff > 0 ? -0.18 : 0.18;
           break;
         }
@@ -179,7 +195,7 @@ export function animate() {
     const distToCam = cam.position.distanceTo(_wp);
     const pr = s.hoveredObj.userData.radius * (s.hoveredObj.scale?.x || 1);
     // Ring must be larger than the planet — at least 1.5x planet radius, or 4% of camera distance
-    highlightRing.scale.setScalar(Math.max(pr * 1.5, distToCam * 0.04));
+    highlightRing.scale.setScalar(Math.max(pr * 1.5, distToCam * 0.025));
     highlightRing.quaternion.copy(cam.quaternion);
     highlightRing.visible = true;
   } else {
